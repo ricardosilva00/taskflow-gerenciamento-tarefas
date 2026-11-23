@@ -12,6 +12,11 @@ from datetime import datetime, timezone
 # Status possíveis de uma tarefa, espelhando as colunas do quadro Kanban.
 STATUS_VALIDOS = ("todo", "in_progress", "done")
 
+# Prioridades possíveis (adicionadas na mudança de escopo - ver README).
+# O número indica o peso usado na ordenação: menor = mais urgente.
+PRIORIDADES = {"alta": 1, "media": 2, "baixa": 3}
+PRIORIDADE_PADRAO = "media"
+
 TITULO_MAX = 100
 DESCRICAO_MAX = 500
 
@@ -49,6 +54,15 @@ def validar_status(status):
     return status
 
 
+def validar_prioridade(prioridade):
+    """A prioridade deve ser 'alta', 'media' ou 'baixa'."""
+    if prioridade is None:
+        return PRIORIDADE_PADRAO
+    if not isinstance(prioridade, str) or prioridade.lower() not in PRIORIDADES:
+        raise ValidationError(f"Prioridade inválida. Use uma de: {', '.join(PRIORIDADES)}.")
+    return prioridade.lower()
+
+
 def _agora():
     """Data/hora atual em UTC no formato ISO 8601."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -62,6 +76,7 @@ class Task:
     titulo: str
     descricao: str = ""
     status: str = "todo"
+    prioridade: str = PRIORIDADE_PADRAO
     criada_em: str = field(default_factory=_agora)
     atualizada_em: str = field(default_factory=_agora)
 
