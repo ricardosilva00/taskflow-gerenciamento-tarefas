@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaskFlow - Gerenciamento de Tarefas</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #172b4d; }
+    header { background: #0b3d91; color: #fff; padding: 16px 24px; }
+    header h1 { margin: 0; font-size: 22px; }
+    main { padding: 24px; max-width: 1100px; margin: auto; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    input, select, button { padding: 8px; border: 1px solid #c1c7d0; border-radius: 4px; font-size: 14px; }
+    input[name=titulo] { flex: 1 1 200px; }
+    input[name=descricao] { flex: 2 1 260px; }
+    button { background: #0b3d91; color: #fff; border: none; cursor: pointer; }
+    button.sec { background: #dfe1e6; color: #172b4d; }
+    button.del { background: #de350b; }
+    #erro { color: #de350b; min-height: 20px; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .col { background: #ebecf0; border-radius: 6px; padding: 12px; min-height: 200px; }
+    .col h2 { font-size: 15px; margin: 0 0 8px; }
+    .card { background: #fff; border-radius: 4px; padding: 10px; margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.15); border-left: 4px solid #6b778c; }
+    .card p { margin: 4px 0; font-size: 13px; color: #5e6c84; }
+    .card .acoes { display: flex; gap: 4px; margin-top: 6px; }
+    .card .acoes button { padding: 4px 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+<header><h1>TaskFlow &mdash; Quadro de Tarefas</h1></header>
+<main>
+  <!-- Formulário de criação de tarefa (Create) -->
+  <form id="form-tarefa">
+    <input name="titulo" placeholder="Título da tarefa" required maxlength="100">
+    <input name="descricao" placeholder="Descrição (opcional)" maxlength="500">
+    <button type="submit">Adicionar</button>
+  </form>
+  <div id="erro"></div>
+
+  <!-- Quadro Kanban: as colunas correspondem aos status da tarefa (Read) -->
+  <div class="board">
+    <section class="col" data-status="todo"><h2>A Fazer (<span>0</span>)</h2><div></div></section>
+    <section class="col" data-status="in_progress"><h2>Em Progresso (<span>0</span>)</h2><div></div></section>
+    <section class="col" data-status="done"><h2>Concluído (<span>0</span>)</h2><div></div></section>
+  </div>
+</main>
+
+<script>
+  const ORDEM = ["todo", "in_progress", "done"];
+  const erro = document.getElementById("erro");
+
+  // Chama a API e trata erros de forma centralizada.
+  async function api(metodo, url, corpo) {
+    const resp = await fetch(url, {
+      method: metodo,
+      headers: { "Content-Type": "application/json" },
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+    if (!resp.ok) {
+      const dados = await resp.json().catch(() => ({}));
+      throw new Error(dados.erro || "Erro inesperado");
+    }
+    return resp.status === 204 ? null : resp.json();
+  }
+
+  // Monta o card de uma tarefa com os botões de mover (Update) e excluir (Delete).
+  function criarCard(t) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const idx = ORDEM.indexOf(t.status);
+    card.innerHTML = `
+      <strong></strong><p></p>
+      <div class="acoes">
+        ${idx > 0 ? '<button class="sec" data-acao="voltar">&larr;</button>' : ""}
+        ${idx < 2 ? '<button class="sec" data-acao="avancar">&rarr;</button>' : ""}
+        <button class="del" data-acao="excluir">Excluir</button>
+      </div>`;
+    card.querySelector("strong").textContent = t.titulo; // textContent evita XSS
+    card.querySelector("p").textContent = t.descricao;
+    card.querySelector(".acoes").addEventListener("click", async (e) => {
+      const acao = e.target.dataset.acao;
+      if (!acao) return;
+      try {
+        if (acao === "excluir") await api("DELETE", `/api/tasks/${t.id}`);
+        else {
+          const novo = ORDEM[idx + (acao === "avancar" ? 1 : -1)];
+          await api("PUT", `/api/tasks/${t.id}`, { status: novo });
+        }
+        carregar();
+      } catch (err) { erro.textContent = err.message; }
+    });
+    return card;
+  }
+
+  // Busca as tarefas e redesenha o quadro.
+  async function carregar() {
+    const tarefas = await api("GET", "/api/tasks");
+    document.querySelectorAll(".col").forEach((col) => {
+      const lista = tarefas.filter((t) => t.status === col.dataset.status);
+      col.querySelector("span").textContent = lista.length;
+      const div = col.querySelector("div");
+      div.replaceChildren(...lista.map(criarCard));
+    });
+  }
+
+  document.getElementById("form-tarefa").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const dados = Object.fromEntries(new FormData(e.target));
+    try {
+      await api("POST", "/api/tasks", dados);
+      e.target.reset();
+      erro.textContent = "";
+      carregar();
+    } catch (err) { erro.textContent = err.message; }
+  });
+
+  carregar();
+</script>
+</body>
+</html>
