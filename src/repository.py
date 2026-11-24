@@ -9,10 +9,12 @@ de dados exigiria alterar apenas esta classe.
 from threading import Lock
 
 from src.models import (
+    PRIORIDADES,
     Task,
     ValidationError,
     _agora,
     validar_descricao,
+    validar_prioridade,
     validar_status,
     validar_titulo,
 )
@@ -31,12 +33,13 @@ class TaskRepository:
         self._lock = Lock()  # evita conflitos de id com requisições simultâneas
 
     # ---------- CREATE ----------
-    def criar(self, titulo, descricao=None, status="todo"):
+    def criar(self, titulo, descricao=None, status="todo", prioridade=None):
         """Cria uma nova tarefa após validar todos os campos."""
         tarefa_validada = dict(
             titulo=validar_titulo(titulo),
             descricao=validar_descricao(descricao),
             status=validar_status(status),
+            prioridade=validar_prioridade(prioridade),
         )
         with self._lock:
             tarefa = Task(id=self._proximo_id, **tarefa_validada)
@@ -45,13 +48,19 @@ class TaskRepository:
         return tarefa
 
     # ---------- READ ----------
-    def listar(self, status=None):
-        """Lista as tarefas em ordem de criação, opcionalmente filtrando por status."""
+    def listar(self, status=None, prioridade=None):
+        """
+        Lista as tarefas, opcionalmente filtrando por status e/ou prioridade.
+        O resultado vem ordenado por prioridade (alta primeiro) e depois por id.
+        """
         tarefas = list(self._tarefas.values())
         if status is not None:
             validar_status(status)
             tarefas = [t for t in tarefas if t.status == status]
-        return sorted(tarefas, key=lambda t: t.id)
+        if prioridade is not None:
+            prioridade = validar_prioridade(prioridade)
+            tarefas = [t for t in tarefas if t.prioridade == prioridade]
+        return sorted(tarefas, key=lambda t: (PRIORIDADES[t.prioridade], t.id))
 
     def obter(self, tarefa_id):
         """Retorna uma tarefa pelo id ou lança TaskNotFoundError."""
@@ -68,6 +77,7 @@ class TaskRepository:
             "titulo": validar_titulo,
             "descricao": validar_descricao,
             "status": validar_status,
+            "prioridade": validar_prioridade,
         }
         desconhecidos = set(campos) - set(validadores)
         if desconhecidos:
