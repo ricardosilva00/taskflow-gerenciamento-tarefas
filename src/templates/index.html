@@ -22,9 +22,13 @@
     .col h2 { font-size: 15px; margin: 0 0 8px; }
     .card { background: #fff; border-radius: 4px; padding: 10px; margin-bottom: 8px;
             box-shadow: 0 1px 2px rgba(0,0,0,.15); border-left: 4px solid #6b778c; }
+    .card.alta { border-left-color: #de350b; }
+    .card.media { border-left-color: #ff991f; }
+    .card.baixa { border-left-color: #36b37e; }
     .card p { margin: 4px 0; font-size: 13px; color: #5e6c84; }
     .card .acoes { display: flex; gap: 4px; margin-top: 6px; }
     .card .acoes button { padding: 4px 8px; font-size: 12px; }
+    .tag { font-size: 11px; text-transform: uppercase; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -34,6 +38,11 @@
   <form id="form-tarefa">
     <input name="titulo" placeholder="Título da tarefa" required maxlength="100">
     <input name="descricao" placeholder="Descrição (opcional)" maxlength="500">
+    <select name="prioridade" aria-label="Prioridade">
+      <option value="alta">Alta</option>
+      <option value="media" selected>Média</option>
+      <option value="baixa">Baixa</option>
+    </select>
     <button type="submit">Adicionar</button>
   </form>
   <div id="erro"></div>
@@ -67,16 +76,17 @@
   // Monta o card de uma tarefa com os botões de mover (Update) e excluir (Delete).
   function criarCard(t) {
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = "card " + t.prioridade;
     const idx = ORDEM.indexOf(t.status);
     card.innerHTML = `
+      <span class="tag">${t.prioridade}</span>
       <strong></strong><p></p>
       <div class="acoes">
         ${idx > 0 ? '<button class="sec" data-acao="voltar">&larr;</button>' : ""}
         ${idx < 2 ? '<button class="sec" data-acao="avancar">&rarr;</button>' : ""}
         <button class="del" data-acao="excluir">Excluir</button>
       </div>`;
-    card.querySelector("strong").textContent = t.titulo; // textContent evita XSS
+    card.querySelector("strong").textContent = " " + t.titulo; // textContent evita XSS
     card.querySelector("p").textContent = t.descricao;
     card.querySelector(".acoes").addEventListener("click", async (e) => {
       const acao = e.target.dataset.acao;
@@ -93,7 +103,7 @@
     return card;
   }
 
-  // Busca as tarefas e redesenha o quadro.
+  // Busca as tarefas (já ordenadas por prioridade) e redesenha o quadro.
   async function carregar() {
     const tarefas = await api("GET", "/api/tasks");
     document.querySelectorAll(".col").forEach((col) => {
