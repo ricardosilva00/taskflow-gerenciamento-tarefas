@@ -40,8 +40,11 @@ def create_app(repositorio=None):
     # ---------- API REST ----------
     @app.get("/api/tasks")
     def listar():
-        # Filtro opcional: /api/tasks?status=todo
-        tarefas = repo.listar(status=request.args.get("status"))
+        # Filtros opcionais: /api/tasks?status=todo&prioridade=alta
+        tarefas = repo.listar(
+            status=request.args.get("status"),
+            prioridade=request.args.get("prioridade"),
+        )
         return jsonify([t.to_dict() for t in tarefas])
 
     @app.post("/api/tasks")
@@ -51,6 +54,7 @@ def create_app(repositorio=None):
             titulo=dados.get("titulo"),
             descricao=dados.get("descricao"),
             status=dados.get("status", "todo"),
+            prioridade=dados.get("prioridade"),
         )
         return jsonify(tarefa.to_dict()), 201
 
