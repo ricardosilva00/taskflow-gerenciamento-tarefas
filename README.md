@@ -20,6 +20,8 @@ A **TechFlow Solutions** (empresa fictícia) foi contratada por uma startup de l
 
 **Fora do escopo:** autenticação de usuários, persistência em banco de dados (os dados ficam em memória) e notificações.
 
+**Adicionado por mudança de escopo (Sprint 3):** prioridade das tarefas — ver [Gestão de Mudanças](#gestão-de-mudanças).
+
 ## Metodologia
 
 Foi adotado um modelo **híbrido Scrum + Kanban (Scrumban)**:
@@ -28,7 +30,7 @@ Foi adotado um modelo **híbrido Scrum + Kanban (Scrumban)**:
 - **Scrum** — as entregas foram organizadas em 3 sprints curtas, cada uma com um incremento funcional:
   1. *Sprint 1* — documentação, estrutura do repositório, modelo e CRUD.
   2. *Sprint 2* — interface web, testes automatizados e CI.
-  3. *Sprint 3* — ajustes a partir do feedback do cliente e documentação UML.
+  3. *Sprint 3* — mudança de escopo (prioridades) e documentação UML.
 - **Commits semânticos** ([Conventional Commits](https://www.conventionalcommits.org/pt-br/)): `feat`, `fix`, `test`, `docs`, `ci`, `chore`.
 - **Integração contínua** — todo push na `main` dispara lint + testes.
 
@@ -37,6 +39,7 @@ Foi adotado um modelo **híbrido Scrum + Kanban (Scrumban)**:
 ```
 .
 ├── .github/workflows/ci.yml   # Pipeline de CI (flake8 + pytest)
+├── docs/uml.md                # Diagramas UML (casos de uso e classes)
 ├── src/
 │   ├── models.py              # Entidade Task e regras de validação
 │   ├── repository.py          # CRUD em memória
@@ -66,8 +69,8 @@ Acesse **http://127.0.0.1:5000** no navegador.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/tasks?status=` | Lista tarefas (filtro opcional por status) |
-| POST | `/api/tasks` | Cria tarefa — `{"titulo", "descricao", "status"}` |
+| GET | `/api/tasks?status=&prioridade=` | Lista tarefas (filtros opcionais), ordenadas por prioridade |
+| POST | `/api/tasks` | Cria tarefa — `{"titulo", "descricao", "status", "prioridade"}` |
 | GET | `/api/tasks/<id>` | Consulta uma tarefa |
 | PUT | `/api/tasks/<id>` | Atualiza campos de uma tarefa |
 | DELETE | `/api/tasks/<id>` | Exclui uma tarefa |
@@ -78,7 +81,7 @@ Exemplo:
 ```bash
 curl -X POST http://127.0.0.1:5000/api/tasks \
      -H "Content-Type: application/json" \
-     -d '{"titulo": "Conferir carga da doca 3"}'
+     -d '{"titulo": "Conferir carga da doca 3", "prioridade": "alta"}'
 ```
 
 ## Testes e controle de qualidade
@@ -91,14 +94,29 @@ pytest -v          # testes automatizados
 - `tests/test_models.py` — testes unitários de **validação de entradas**.
 - `tests/test_repository.py` — testes do CRUD em memória.
 - `tests/test_api.py` — testes de integração da API REST.
+- `tests/test_prioridade.py` — testes da funcionalidade adicionada na mudança de escopo.
 
 O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda o **flake8** e o **pytest** em Python 3.11 e 3.12 a cada push e pull request. Se algum teste ou regra de qualidade falhar, o commit fica marcado com ❌ e a falha aparece na aba **Actions**.
+
+## Gestão de Mudanças
+
+### Mudança de escopo: priorização de tarefas
+
+| Item | Descrição |
+|---|---|
+| **Solicitante** | Cliente (startup de logística), na revisão da Sprint 2 |
+| **Pedido** | Permitir marcar tarefas como **alta, média ou baixa** prioridade, com as críticas aparecendo primeiro |
+| **Justificativa** | Na operação logística, entregas com prazo crítico (ex.: carga perecível, janela de doca) se perdiam no meio das demais tarefas. Sem prioridade, a equipe não conseguia cumprir o objetivo de "priorizar tarefas críticas" definido no início do projeto. |
+| **Impacto** | Novo campo `prioridade` no modelo (padrão `media`, sem quebrar clientes antigos da API), ordenação e filtro por prioridade, destaque por cor no quadro, novos testes. |
+| **Como foi gerenciada** | 1) Novo card criado no Kanban — issue [#9](../../issues/9) — e movido de *To Do* → *In Progress* → *Done*; 2) implementação em commits pequenos (`feat:` / `test:`) referenciando a issue (`Refs #9`); 3) CI validando que nada existente quebrou; 4) README e UML atualizados. |
+
+**Lições:** a mudança foi absorvida com baixo risco porque a validação estava centralizada em `models.py` e os testes existentes funcionaram como rede de segurança — exatamente o que o Manifesto Ágil propõe com *"responder a mudanças mais que seguir um plano"*.
 
 ## Questões norteadoras
 
 **1. Principais causas de falhas em projetos ágeis e como o GitHub ajuda a mitigá-las.** Falhas comuns são tarefas mal definidas, falta de visibilidade do andamento, comunicação fragmentada, retrabalho por regressões e mudanças sem rastreio. O GitHub mitiga com o quadro Projects (visibilidade e WIP), issues/cards (tarefas descritas e atribuídas), histórico de commits (rastreabilidade), pull requests (revisão de código) e Actions (detecção automática de regressões).
 
-**2. Quem se beneficia e como.** Operadores de logística usam o quadro para saber o que fazer a seguir; gestores usam o resumo por status para redistribuir o trabalho e medir o fluxo; o cliente acompanha a evolução em tempo real; a equipe de desenvolvimento ganha um processo previsível.
+**2. Quem se beneficia e como.** Operadores de logística usam o quadro para saber o que fazer a seguir; gestores usam prioridades e o resumo por status para redistribuir o trabalho e medir o fluxo; o cliente acompanha a evolução em tempo real; a equipe de desenvolvimento ganha um processo previsível.
 
 **3. Como o GitHub Actions garante software confiável.** Cada alteração é verificada automaticamente (lint + testes em mais de uma versão do Python) antes de ser considerada pronta. Erros aparecem minutos após o push, quando são baratos de corrigir, e ninguém depende de "lembrar" de rodar os testes.
 
